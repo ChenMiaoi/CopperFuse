@@ -1,0 +1,123 @@
+/*
+  FUSE: Filesystem in Userspace
+  Copyright (C) 2001-2007  Miklos Szeredi <miklos@szeredi.hu>
+
+  This program can be distributed under the terms of the GNU LGPLv2.
+  See the file COPYING.LIB.
+
+  CopperFuse: C++ version Filesystem in Userspace
+  Copyright (C) 2023 Chen Miao <chenmiao.ku@gmail.com>
+*/
+
+#ifndef __COPPER_FUSE_OPT_H__
+#define __COPPER_FUSE_OPT_H__
+
+#include "copper_fuse.h"
+#include "copper_fuse_config.h"
+#include "copper_fuse_lowlevel.h"
+
+#include <cstring>
+#include <cstdlib>
+#include <functional>
+#include <string>
+#include <limits>
+#include <thread>
+#include <numeric>
+
+/**
+ * Option description
+ *
+ * This structure describes a single option, and action associated
+ * with it, in case it matches.
+ *
+ * More than one such match may occur, in which case the action for
+ * each match is executed.
+ *
+ * There are three possible actions in case of a match:
+ *
+ * i) An integer (int or unsigned) variable determined by 'offset' is
+ *    set to 'value'
+ *
+ * ii) The processing function is called, with 'value' as the key
+ *
+ * iii) An integer (any) or string (char *) variable determined by
+ *    'offset' is set to the value of an option parameter
+ *
+ * 'offset' should normally be either set to
+ *
+ *  - 'offsetof(struct foo, member)'  actions i) and iii)
+ *
+ *  - -1			      action ii)
+ *
+ * The 'offsetof()' macro is defined in the <stddef.h> header.
+ *
+ * The template determines which options match, and also have an
+ * effect on the action.  Normally the action is either i) or ii), but
+ * if a format is present in the template, then action iii) is
+ * performed.
+ *
+ * The types of templates are:
+ *
+ * 1) "-x", "-foo", "--foo", "--foo-bar", etc.	These match only
+ *   themselves.  Invalid values are "--" and anything beginning
+ *   with "-o"
+ *
+ * 2) "foo", "foo-bar", etc.  These match "-ofoo", "-ofoo-bar" or
+ *    the relevant option in a comma separated option list
+ *
+ * 3) "bar=", "--foo=", etc.  These are variations of 1) and 2)
+ *    which have a parameter
+ *
+ * 4) "bar=%s", "--foo=%lu", etc.  Same matching as above but perform
+ *    action iii).
+ *
+ * 5) "-x ", etc.  Matches either "-xparam" or "-x param" as
+ *    two separate arguments
+ *
+ * 6) "-x %s", etc.  Combination of 4) and 5)
+ *
+ * If the format is "%s", memory is allocated for the string unlike with
+ * scanf().  The previous value (if non-NULL) stored at the this location is
+ * freed.
+ */
+struct copper_fuse_opt {
+	/** Matching template and optional parameter formatting */
+	std::string templ;
+
+	/**
+	 * Offset of variable within 'data' parameter of fuse_opt_parse()
+	 * or -1
+	 */
+	unsigned long offset;
+
+	/**
+	 * Value to set the variable to, or to be passed as 'key' to the
+	 * processing function.	 Ignored if template has a format
+	 */
+	int value;
+};
+
+/**
+ * Argument list
+ */
+struct copper_fuse_args {
+	/** Argument count */
+	int argc;
+
+	/** Argument vector.  NULL terminated */
+	char **argv;
+
+	/** Is 'argv' allocated? */
+	int allocated;
+
+public:
+    copper_fuse_args(int _argc, char** _argv);
+
+public:
+	using copper_fuse_opt_proc_t = std::function<int(void*, const char*, int, struct copper_fuse_args*)>;
+
+    int parse_cmdline(struct copper_fuse_cmdline_opts* opts);
+	int parse_opt(void* data, const copper_fuse_opt opts[], copper_fuse_opt_proc_t proc);
+};
+
+#endif //! __COPPER_FUSE_OPT_H__

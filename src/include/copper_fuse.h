@@ -12,16 +12,16 @@
 #ifndef __COPPER_FUSE_H__
 #define __COPPER_FUSE_H__
 
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 #include <fcntl.h>
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
+#include <sys/types.h>
 #include <sys/uio.h>
 
-#include <variant>
 #include <functional>
+#include <variant>
 
 /** ----------------------------------------------------------- *
  * Basic FUSE API					       
@@ -31,7 +31,7 @@
  * Readdir flags, passed to ->readdir()
  */
 enum fuse_readdir_flags {
-    /**
+  /**
 	 * "Plus" mode.
 	 *
 	 * The kernel wants to prefill the inode cache during readdir.  The
@@ -39,7 +39,7 @@ enum fuse_readdir_flags {
 	 * FUSE_FILL_DIR_FLAGS for the filler function.  The filesystem may also
 	 * just ignore this flag completely.
 	 */
-    FUSE_READDIR_PLUS = (1 << 0),
+  FUSE_READDIR_PLUS = (1 << 0),
 };
 
 /**
@@ -73,9 +73,13 @@ enum fuse_fill_dir_flags {
  * @param flags fill flags
  * @return 1 if buffer is full, zero otherwise
  */
-using fuse_fill_dir_t = 
-  std::function<int(void *buf, const char *name, const struct stat *stbuf, off_t off,
-				enum fuse_fill_dir_flags flags)>;
+using fuse_fill_dir_t = std::function < int(void *buf, const char *name,
+                                            const struct stat *stbuf,
+                                            off_t off, enum fuse_fill_dir_flags flags)>;
+
+struct copper_fuse {
+
+};
 
 /**
  * Configuration of the high-level API
@@ -387,5 +391,100 @@ struct copper_fuse_operations {
 	operators_wrapper_type<ssize_t, const char*, struct fuse_file_info*, off_t, const char*, struct fuse_file_info*, off_t, size_t, int> copy_file_range;
 	operators_wrapper_type<off_t, const char*, off_t, int, struct fuse_file_info*> lseek;
 };
+
+/** 
+ * Extra context that may be needed by some filesystems
+ *
+ * The uid, gid and pid fields are not filled in case of a writepage
+ * operation.
+ */
+struct copper_fuse_context {
+  /** Pointer to the fuse object */
+	struct copper_fuse* fuse;
+
+	/** User ID of the calling process */
+	uid_t uid;
+
+	/** Group ID of the calling process */
+	gid_t gid;
+
+	/** Process ID of the calling thread */
+	pid_t pid;
+
+	/** Private filesystem data */
+	void* private_data;
+
+	/** Umask of the calling process */
+	mode_t umask;
+};
+
+/**
+ * Main function of FUSE.
+ *
+ * This is for the lazy.  This is all that has to be called from the
+ * main() function.
+ *
+ * This function does the following:
+ *   - parses command line options, and handles --help and
+ *     --version
+ *   - installs signal handlers for INT, HUP, TERM and PIPE
+ *   - registers an exit handler to unmount the filesystem on program exit
+ *   - creates a fuse handle
+ *   - registers the operations
+ *   - calls either the single-threaded or the multi-threaded event loop
+ *
+ * Most file systems will have to parse some file-system specific
+ * arguments before calling this function. It is recommended to do
+ * this with fuse_opt_parse() and a processing function that passes
+ * through any unknown options (this can also be achieved by just
+ * passing NULL as the processing function). That way, the remaining
+ * options can be passed directly to fuse_main().
+ *
+ * fuse_main() accepts all options that can be passed to
+ * fuse_parse_cmdline(), fuse_new(), or fuse_session_new().
+ *
+ * Option parsing skips argv[0], which is assumed to contain the
+ * program name. This element must always be present and is used to
+ * construct a basic ``usage: `` message for the --help
+ * output. argv[0] may also be set to the empty string. In this case
+ * the usage message is suppressed. This can be used by file systems
+ * to print their own usage line first. See hello.c for an example of
+ * how to do this.
+ *
+ * Note: this is currently implemented as a macro.
+ *
+ * The following error codes may be returned from fuse_main():
+ *   1: Invalid option arguments
+ *   2: No mount point specified
+ *   3: FUSE setup failed
+ *   4: Mounting failed
+ *   5: Failed to daemonize (detach from session)
+ *   6: Failed to set up signal handlers
+ *   7: An error occurred during the life of the file system
+ *
+ * @param argc the argument counter passed to the main() function
+ * @param argv the argument vector passed to the main() function
+ * @param op the file system operation
+ * @param private_data Initial value for the `private_data`
+ *            field of `struct fuse_context`. May be overridden by the
+ *            `struct fuse_operations.init` handler.
+ * @return 0 on success, nonzero on failure
+ *
+ * Example usage, see hello.c
+ */
+/*
+  int fuse_main(int argc, char *argv[], const struct fuse_operations *op,
+  void *private_data);
+*/
+#define copper_fuse_main(argc, argv, op, private_data)  \
+  copper_fuse_main_real(argc, argv, op, sizeof(*(op)), private_data)
+
+/**
+ * The real main function
+ *
+ * Do not call this directly, use fuse_main()
+ */
+int copper_fuse_main_real(int argc, char *argv[], 
+  const struct copper_fuse_operations *op, size_t op_size, void *private_data);
 
 #endif //! __COPPER_FUSE_H__
