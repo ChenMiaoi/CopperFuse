@@ -33,6 +33,11 @@ struct copper_fuse_cmdline_opts {
 	unsigned int max_idle_threads; /* discouraged, due to thread
 	                                * destruct overhead */
 	unsigned int max_threads;
+
+public:
+	int add_opt(const char* opt);
 };
+
+int add_opt_common(char** opts, const char* opt, int esc);
 
 #endif //! __COPPER_FUSE_LOWLEVEL_H__

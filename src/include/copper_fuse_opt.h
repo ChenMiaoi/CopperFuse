@@ -82,7 +82,7 @@
  */
 struct copper_fuse_opt {
 	/** Matching template and optional parameter formatting */
-	std::string templ;
+	const char* templ;
 
 	/**
 	 * Offset of variable within 'data' parameter of fuse_opt_parse()
@@ -96,6 +96,9 @@ struct copper_fuse_opt {
 	 */
 	int value;
 };
+
+using copper_fuse_opt_proc_t = 
+		std::function<int(void*, const char*, int, struct copper_fuse_args*)>;
 
 /**
  * Argument list
@@ -111,13 +114,48 @@ struct copper_fuse_args {
 	int allocated;
 
 public:
+		copper_fuse_args() = default;
     copper_fuse_args(int _argc, char** _argv);
 
 public:
-	using copper_fuse_opt_proc_t = std::function<int(void*, const char*, int, struct copper_fuse_args*)>;
 
-    int parse_cmdline(struct copper_fuse_cmdline_opts* opts);
+  int parse_cmdline(struct copper_fuse_cmdline_opts* opts);
 	int parse_opt(void* data, const copper_fuse_opt opts[], copper_fuse_opt_proc_t proc);
+
+	int add_arg(const char* arg);
+};
+
+inline struct copper_fuse_opt COPPER_FUSE_OPT_KEY(const char* tmpl, int key) {
+	return { tmpl, -1U, key };
+}
+const struct copper_fuse_opt COPPER_FUSE_OPT_END { nullptr, 0, 0 };
+
+enum COPPER_FUSE_OPT {
+	KEY_OPT 		= -1,
+	KEY_NONOPT 	= -2,
+	KEY_KEEP 		= -3,
+	KEY_DISCARD = -4,
+};
+
+struct copper_fuse_opt_context {
+	void* data;
+	const struct copper_fuse_opt* opt;
+	copper_fuse_opt_proc_t proc;
+	int argctr;
+	int argc;
+	char** argv;
+	struct copper_fuse_args outargs;
+	char* opts;
+	int nonopt;
+
+public:
+	int opt_parse(void);
+	int add_opt(const char* opt);
+	int add_arg(const char* arg);
+	int process_one(const char* arg);
+	int process_option_group(const char* opts);
+	int process_real_option_group(const char* opts);
+	int call_proc(const char* arg, int key, int iso);
 };
 
 #endif //! __COPPER_FUSE_OPT_H__

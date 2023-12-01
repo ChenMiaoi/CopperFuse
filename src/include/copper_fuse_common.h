@@ -53,4 +53,8 @@ struct fuse_loop_config_v1 {
 	unsigned int max_idle_threads;
 };
 
+struct copper_fuse_conn_info {
+
+};
+
 #endif //! __COPPER_FUSE_COMMON_H__

@@ -12,6 +12,7 @@
 #ifndef __COPPER_FUSE_H__
 #define __COPPER_FUSE_H__
 
+#include "copper_fuse_common.h"
 #include <cstddef>
 #include <cstdint>
 #include <fcntl.h>
@@ -304,7 +305,8 @@ struct copper_fuse_config {
 #if defined (__cplusplus) && (__cplusplus >= 201703L)
 template <typename ret_type, typename... params_type>
 struct operators_wrapper {
-  using type = std::variant<std::function<ret_type(params_type...)>, ret_type(*)(params_type...)>;
+  // using type = std::variant<std::function<ret_type(params_type...)>, ret_type(*)(params_type...)>;
+	using type = std::function<ret_type(params_type...)>;
 };
 
 template <typename ret_type, typename... params_type>
@@ -371,7 +373,7 @@ struct copper_fuse_operations {
     struct fuse_file_info*, enum fuse_readdir_flags> readdir;
   operators_wrapper_type<int, const char*, struct fuse_file_info*> releasedir;
   operators_wrapper_type<int, const char*, int, struct fuse_file_info*> fsyncdir;
-  operators_wrapper_type<void*, struct fuse_conn_info*, struct copper_fuse_config*> init;
+  operators_wrapper_type<void*, struct copper_fuse_conn_info*, struct copper_fuse_config*> init;
   operators_wrapper_type<void, void*> destroy;
   operators_wrapper_type<int, const char*, int> access;
   operators_wrapper_type<int, const char*, mode_t, struct fuse_file_info*> create;
