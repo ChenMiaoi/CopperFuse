@@ -19,6 +19,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <functional>
+#include <ostream>
 #include <string>
 #include <limits>
 #include <thread>
@@ -95,6 +96,16 @@ struct copper_fuse_opt {
 	 * processing function.	 Ignored if template has a format
 	 */
 	int value;
+
+public:
+	/**
+	 * Matches the given arg in all given parameter templates by `match_template`
+	 * 
+	 * @param arg Parameters to be found
+	 * @param sepp 
+	 * @return const copper_fuse_opt* Matched opt
+	 */
+	const copper_fuse_opt* find_opt(const char* arg, unsigned* sepp) const;
 };
 
 using copper_fuse_opt_proc_t = 
@@ -113,16 +124,26 @@ struct copper_fuse_args {
 	/** Is 'argv' allocated? */
 	int allocated;
 
+	friend std::ostream& operator<< (std::ostream& _out, const copper_fuse_args& args);
 public:
-		copper_fuse_args() = default;
+	copper_fuse_args() = default;
     copper_fuse_args(int _argc, char** _argv);
 
 public:
 
-  int parse_cmdline(struct copper_fuse_cmdline_opts* opts);
+  	int parse_cmdline(struct copper_fuse_cmdline_opts* opts);
+	/**
+	 * @brief 
+	 * 
+	 * @param data 
+	 * @param opts 
+	 * @param proc 
+	 * @return int 
+	 */
 	int parse_opt(void* data, const copper_fuse_opt opts[], copper_fuse_opt_proc_t proc);
 
 	int add_arg(const char* arg);
+	int insert_arg(int pos, const char* arg);
 };
 
 inline struct copper_fuse_opt COPPER_FUSE_OPT_KEY(const char* tmpl, int key) {
@@ -148,13 +169,42 @@ struct copper_fuse_opt_context {
 	char* opts;
 	int nonopt;
 
+private:
+	/**
+	 * Handling the parsing of a single parameter,
+	 * possible cases are nonopt, "-o ", "-ofoo", "-h", and so on
+	 * 
+	 * @param arg Parameters to be parsed
+	 * @return int Return 0 if parsing is normal, -1 otherwise
+	 */
+	int process_one(const char* arg);
+	int process_option_group(const char* opts);
+	int process_real_option_group(char* opts);
+	/**
+	 * For processing options  
+	 * TODO
+	 * @param arg 
+	 * @param iso 
+	 * @return int 
+	 */
+	int process_gopt(const char* arg, int iso);
+	/**
+	 * Used to handle whether the flag bits set by the option are available
+	 * 
+	 * @param opt The operation that needs to be identified
+	 * @param sep 
+	 * @param arg 
+	 * @param iso 
+	 * @return int Return 0 if correctly identified, -1 otherwise
+	 */
+	int process_opt(const copper_fuse_opt* opt, unsigned sep, const char* arg, int iso);
+	int process_opt_sep_arg(const copper_fuse_opt* opt, unsigned sep, const char* arg, int iso);
 public:
 	int opt_parse(void);
 	int add_opt(const char* opt);
 	int add_arg(const char* arg);
-	int process_one(const char* arg);
-	int process_option_group(const char* opts);
-	int process_real_option_group(const char* opts);
+	int next_arg(const char* arg);
+	int insert_arg(int pos, const char* arg);
 	int call_proc(const char* arg, int key, int iso);
 };
 
